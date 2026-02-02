@@ -1,0 +1,353 @@
+---
+description: Padrões práticos de testes - AAA, fixtures, templates
+globs: "**/*.test.{ts,tsx}"
+alwaysApply: false
+---
+
+# Padrões Práticos de Testes
+
+## Padrão AAA (Arrange-Act-Assert)
+
+Todo teste deve seguir as 3 fases claramente separadas:
+
+```typescript
+it('should calculate total with tax', () => {
+  // Arrange - preparar dados e dependências
+  const items = [
+    { name: 'Product A', price: 100 },
+    { name: 'Product B', price: 50 },
+  ];
+  const taxRate = 0.1;
+
+  // Act - executar a ação sendo testada
+  const total = calculateTotal(items, taxRate);
+
+  // Assert - verificar o resultado
+  expect(total).toBe(165);
+});
+```
+
+```typescript
+// ❌ RUIM: fases misturadas
+it('should update user', async () => {
+  const user = await createUser({ name: 'Old' });
+  expect(user.name).toBe('Old'); // assert no meio
+  await updateUser(user.id, { name: 'New' });
+  const updated = await getUser(user.id);
+  expect(updated.name).toBe('New');
+});
+
+// ✅ BOM: fases separadas
+it('should update user name', async () => {
+  // Arrange
+  const user = await createUser({ name: 'Old' });
+
+  // Act
+  await updateUser(user.id, { name: 'New' });
+
+  // Assert
+  const updated = await getUser(user.id);
+  expect(updated.name).toBe('New');
+});
+```
+
+---
+
+## Fixtures e Factories
+
+### Factory Pattern
+
+```typescript
+// __fixtures__/user.fixture.ts
+import { User } from '@/types';
+
+const defaultUser: User = {
+  id: 'user-123',
+  name: 'John Doe',
+  email: 'john@example.com',
+  role: 'user',
+  createdAt: new Date('2024-01-01'),
+};
+
+export const createUserMock = (overrides?: Partial<User>): User => ({
+  ...defaultUser,
+  ...overrides,
+});
+
+// Variantes comuns
+export const createAdminMock = (overrides?: Partial<User>): User =>
+  createUserMock({ role: 'admin', ...overrides });
+
+export const createGuestMock = (overrides?: Partial<User>): User =>
+  createUserMock({ role: 'guest', permissions: [], ...overrides });
+```
+
+### Uso nos Testes
+
+```typescript
+import { createUserMock, createAdminMock } from '@/__fixtures__/user.fixture';
+
+describe('UserService', () => {
+  it('should allow admin to delete users', () => {
+    // Arrange
+    const admin = createAdminMock();
+    const targetUser = createUserMock({ id: 'target-456' });
+
+    // Act
+    const result = userService.delete(targetUser.id, admin);
+
+    // Assert
+    expect(result.success).toBe(true);
+  });
+});
+```
+
+---
+
+## Cenários Obrigatórios
+
+Para cada feature, cobrir:
+
+### 1. Happy Path (Dados Válidos)
+
+```typescript
+describe('when data is valid', () => {
+  it('should create user successfully', async () => {
+    const input = createUserInputMock();
+    const result = await userService.create(input);
+    expect(result.id).toBeDefined();
+  });
+});
+```
+
+### 2. Validação (Dados Inválidos)
+
+```typescript
+describe('when data is invalid', () => {
+  it('should reject empty email', async () => {
+    const input = createUserInputMock({ email: '' });
+    await expect(userService.create(input)).rejects.toThrow(ValidationError);
+  });
+
+  it('should reject invalid email format', async () => {
+    const input = createUserInputMock({ email: 'not-an-email' });
+    await expect(userService.create(input)).rejects.toThrow('Invalid email');
+  });
+});
+```
+
+### 3. Loading States
+
+```typescript
+describe('when loading', () => {
+  it('should show loading indicator', async () => {
+    render(<UserList />);
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+    await waitForElementToBeRemoved(() => screen.queryByTestId('loading-spinner'));
+  });
+});
+```
+
+### 4. Error Handling
+
+```typescript
+describe('when request fails', () => {
+  it('should display error message', async () => {
+    server.use(
+      http.get('/api/users', () => HttpResponse.error())
+    );
+
+    render(<UserList />);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/erro ao carregar/i)).toBeInTheDocument();
+    });
+  });
+
+  it('should allow retry', async () => {
+    // ...
+  });
+});
+```
+
+### 5. Edge Cases
+
+```typescript
+describe('edge cases', () => {
+  it('should handle empty list', () => {
+    render(<UserList users={[]} />);
+    expect(screen.getByText('Nenhum usuário encontrado')).toBeInTheDocument();
+  });
+
+  it('should handle null values', () => {
+    const user = createUserMock({ name: null });
+    render(<UserCard user={user} />);
+    expect(screen.getByText('Nome não informado')).toBeInTheDocument();
+  });
+
+  it('should handle very long strings', () => {
+    const user = createUserMock({ name: 'A'.repeat(1000) });
+    render(<UserCard user={user} />);
+    expect(screen.getByText(/A{100}\.{3}/)).toBeInTheDocument();
+  });
+});
+```
+
+---
+
+## Templates de Teste
+
+### Hook Test
+
+```typescript
+import { renderHook, waitFor, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useUsers } from './useUsers';
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
+
+describe('useUsers', () => {
+  describe('when fetching users', () => {
+    it('should return users list', async () => {
+      // Arrange
+      const wrapper = createWrapper();
+
+      // Act
+      const { result } = renderHook(() => useUsers(), { wrapper });
+
+      // Assert
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data).toHaveLength(3);
+    });
+  });
+
+  describe('when mutating', () => {
+    it('should create user', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useCreateUser(), { wrapper });
+
+      act(() => {
+        result.current.mutate({ name: 'New User', email: 'new@test.com' });
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data.id).toBeDefined();
+    });
+  });
+});
+```
+
+### Component Test
+
+```typescript
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { LoginForm } from './LoginForm';
+
+describe('LoginForm', () => {
+  const mockOnSubmit = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('when submitting valid credentials', () => {
+    it('should call onSubmit with form data', async () => {
+      // Arrange
+      const user = userEvent.setup();
+      render(<LoginForm onSubmit={mockOnSubmit} />);
+
+      // Act
+      await user.type(screen.getByLabelText(/email/i), 'test@example.com');
+      await user.type(screen.getByLabelText(/senha/i), 'password123');
+      await user.click(screen.getByRole('button', { name: /entrar/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalledWith({
+          email: 'test@example.com',
+          password: 'password123',
+        });
+      });
+    });
+  });
+
+  describe('when form is invalid', () => {
+    it('should show validation errors', async () => {
+      const user = userEvent.setup();
+      render(<LoginForm onSubmit={mockOnSubmit} />);
+
+      await user.click(screen.getByRole('button', { name: /entrar/i }));
+
+      expect(screen.getByText(/email obrigatório/i)).toBeInTheDocument();
+      expect(mockOnSubmit).not.toHaveBeenCalled();
+    });
+  });
+});
+```
+
+### E2E Test (Playwright)
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Checkout Flow', () => {
+  test.beforeEach(async ({ page }) => {
+    // Arrange - setup inicial
+    await page.goto('/');
+    await page.evaluate(() => localStorage.setItem('token', 'test-token'));
+  });
+
+  test.describe('when completing purchase', () => {
+    test('should show confirmation after payment', async ({ page }) => {
+      // Arrange
+      await page.goto('/products');
+
+      // Act
+      await page.click('[data-testid="product-1"] >> text=Adicionar');
+      await page.click('[data-testid="cart-icon"]');
+      await page.click('text=Finalizar compra');
+      await page.fill('[data-testid="card-number"]', '4242424242424242');
+      await page.fill('[data-testid="card-expiry"]', '12/25');
+      await page.fill('[data-testid="card-cvc"]', '123');
+      await page.click('text=Pagar');
+
+      // Assert
+      await expect(page).toHaveURL(/\/confirmation/);
+      await expect(page.locator('h1')).toContainText('Pedido confirmado');
+      await expect(page.locator('[data-testid="order-id"]')).toBeVisible();
+    });
+  });
+
+  test.describe('when payment fails', () => {
+    test('should show error and allow retry', async ({ page }) => {
+      await page.goto('/checkout');
+      await page.fill('[data-testid="card-number"]', '4000000000000002'); // card that fails
+
+      await page.click('text=Pagar');
+
+      await expect(page.locator('.error-message')).toContainText('Pagamento recusado');
+      await expect(page.locator('text=Tentar novamente')).toBeVisible();
+    });
+  });
+});
+```
+
+---
+
+## Checklist de Teste
+
+- [ ] Segue padrão AAA (Arrange-Act-Assert)
+- [ ] Usa factories para criar dados
+- [ ] Cobre happy path
+- [ ] Cobre validação de dados inválidos
+- [ ] Testa loading states
+- [ ] Testa error handling
+- [ ] Cobre edge cases relevantes

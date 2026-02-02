@@ -1,0 +1,152 @@
+---
+description: Arquitetura modular por feature - estrutura e regras de dependência
+globs: src/modules/**/*
+alwaysApply: false
+---
+
+# Arquitetura Modular por Feature
+
+## Estrutura de Diretórios
+
+Cada feature deve seguir esta estrutura:
+
+```
+src/modules/
+├── rooms/
+│   ├── api/              # Chamadas de API
+│   │   ├── roomsApi.ts
+│   │   └── index.ts
+│   ├── components/       # Componentes UI
+│   │   ├── RoomCard.tsx
+│   │   ├── RoomList.tsx
+│   │   └── index.ts
+│   ├── hooks/            # Lógica de negócio
+│   │   ├── useRooms.ts
+│   │   ├── useRoomDetails.ts
+│   │   └── index.ts
+│   ├── types/            # Tipos TypeScript
+│   │   ├── room.types.ts
+│   │   └── index.ts
+│   ├── schemas/          # Validações (zod, yup, etc)
+│   │   ├── room.schema.ts
+│   │   └── index.ts
+│   └── index.ts          # API pública do módulo
+├── guests/
+│   └── ...
+└── reservations/
+    └── ...
+```
+
+---
+
+## Regras de Dependência
+
+### Fluxo de Dependências
+
+```
+components → hooks → api → types/schemas
+     ↓         ↓       ↓
+   types    types   types
+```
+
+### Importações Permitidas
+
+```typescript
+// ✅ BOM: componente usa hook do mesmo módulo
+// src/modules/rooms/components/RoomList.tsx
+import { useRooms } from '../hooks';
+
+// ✅ BOM: hook usa api do mesmo módulo
+// src/modules/rooms/hooks/useRooms.ts
+import { fetchRooms } from '../api';
+
+// ✅ BOM: qualquer arquivo pode usar types/schemas
+// src/modules/rooms/api/roomsApi.ts
+import { Room, RoomFilters } from '../types';
+import { roomSchema } from '../schemas';
+```
+
+### Importações Proibidas
+
+```typescript
+// ❌ RUIM: importar diretamente de outro módulo
+import { useGuests } from '../guests/hooks/useGuests';
+import { GuestCard } from '../guests/components/GuestCard';
+
+// ✅ BOM: importar via API pública (index.ts)
+import { useGuests, GuestCard } from '@/modules/guests';
+```
+
+```typescript
+// ❌ RUIM: api importando de components (direção errada)
+// src/modules/rooms/api/roomsApi.ts
+import { RoomCard } from '../components';
+
+// ❌ RUIM: hooks importando de components (direção errada)
+// src/modules/rooms/hooks/useRooms.ts
+import { RoomList } from '../components';
+```
+
+---
+
+## API Pública (index.ts)
+
+Cada módulo expõe apenas o necessário via `index.ts`:
+
+```typescript
+// src/modules/rooms/index.ts
+
+// Componentes públicos
+export { RoomCard } from './components';
+export { RoomList } from './components';
+
+// Hooks públicos
+export { useRooms } from './hooks';
+export { useRoomDetails } from './hooks';
+
+// Tipos públicos
+export type { Room, RoomFilters, RoomStatus } from './types';
+
+// NÃO exportar: implementações internas, utils privados, api raw
+```
+
+---
+
+## Comunicação Entre Módulos
+
+### Via Props/Callbacks
+
+```typescript
+// ✅ Módulo de reservations recebe Room como prop
+import type { Room } from '@/modules/rooms';
+
+interface ReservationFormProps {
+  room: Room;
+  onComplete: () => void;
+}
+```
+
+### Via Contexto Compartilhado
+
+```typescript
+// ✅ Contexto global em src/contexts/ (fora de modules)
+import { useAppContext } from '@/contexts/AppContext';
+```
+
+### Via Event Bus (casos avançados)
+
+```typescript
+// ✅ Eventos em src/lib/events.ts (fora de modules)
+import { eventBus } from '@/lib/events';
+eventBus.emit('room:updated', roomId);
+```
+
+---
+
+## Checklist de Módulo
+
+- [ ] Estrutura de pastas completa (api, components, hooks, types, schemas)
+- [ ] `index.ts` em cada subpasta
+- [ ] `index.ts` principal exporta API pública
+- [ ] Sem imports diretos de outros módulos
+- [ ] Dependências fluem na direção correta

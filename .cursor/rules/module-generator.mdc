@@ -1,0 +1,582 @@
+---
+description: Complete artifact generation for new features
+alwaysApply: false
+---
+
+# Gerador de Módulos
+
+Ao criar um novo módulo, gerar TODOS os artefatos abaixo.
+
+## Estrutura Completa
+
+```
+src/modules/{moduleName}/
+├── types/
+│   ├── {moduleName}.types.ts
+│   └── index.ts
+├── schemas/
+│   ├── {moduleName}.schema.ts
+│   └── index.ts
+├── api/
+│   ├── {moduleName}Api.ts
+│   └── index.ts
+├── hooks/
+│   ├── use{ModuleName}.ts
+│   ├── use{ModuleName}Mutations.ts
+│   └── index.ts
+├── components/
+│   ├── {ModuleName}List.tsx
+│   ├── {ModuleName}Form.tsx
+│   ├── {ModuleName}Card.tsx
+│   └── index.ts
+├── __tests__/
+│   ├── hooks/
+│   │   └── use{ModuleName}.test.ts
+│   ├── components/
+│   │   └── {ModuleName}Form.test.tsx
+│   └── e2e/
+│       └── {moduleName}.spec.ts
+├── README.md
+└── index.ts
+```
+
+---
+
+## 1. Types
+
+```typescript
+// types/{moduleName}.types.ts
+
+/**
+ * Representa um {ModuleName} no sistema.
+ */
+export interface {ModuleName} {
+  id: string;
+  // ... propriedades específicas
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Dados para criação de {ModuleName}.
+ */
+export interface Create{ModuleName}Input {
+  // ... campos obrigatórios para criação
+}
+
+/**
+ * Dados para atualização de {ModuleName}.
+ */
+export interface Update{ModuleName}Input {
+  // ... campos opcionais para atualização
+}
+
+/**
+ * Filtros para listagem de {ModuleName}.
+ */
+export interface {ModuleName}Filters {
+  search?: string;
+  status?: {ModuleName}Status;
+  page?: number;
+  limit?: number;
+}
+
+/**
+ * Status possíveis de {ModuleName}.
+ */
+export type {ModuleName}Status = 'active' | 'inactive' | 'pending';
+```
+
+---
+
+## 2. Schemas (Zod)
+
+```typescript
+// schemas/{moduleName}.schema.ts
+import { z } from 'zod';
+
+/**
+ * Schema de validação para criação de {ModuleName}.
+ */
+export const create{ModuleName}Schema = z.object({
+  name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  // ... outras validações
+});
+
+/**
+ * Schema de validação para atualização de {ModuleName}.
+ */
+export const update{ModuleName}Schema = create{ModuleName}Schema.partial();
+
+/**
+ * Schema de validação para filtros de {ModuleName}.
+ */
+export const {moduleName}FiltersSchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(['active', 'inactive', 'pending']).optional(),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(20),
+});
+
+// Tipos inferidos dos schemas
+export type Create{ModuleName}FormData = z.infer<typeof create{ModuleName}Schema>;
+export type Update{ModuleName}FormData = z.infer<typeof update{ModuleName}Schema>;
+```
+
+---
+
+## 3. API
+
+```typescript
+// api/{moduleName}Api.ts
+import { api } from '@/shared/lib/axios';
+import type { {ModuleName}, Create{ModuleName}Input, Update{ModuleName}Input, {ModuleName}Filters } from '../types';
+
+const BASE_URL = '/{moduleName}s';
+
+/**
+ * Busca lista paginada de {ModuleName}s.
+ *
+ * @param filters - Filtros de busca
+ * @returns Lista paginada de {ModuleName}s
+ */
+export async function fetch{ModuleName}s(filters?: {ModuleName}Filters): Promise<PaginatedResponse<{ModuleName}>> {
+  const response = await api.get(BASE_URL, { params: filters });
+  return response.data;
+}
+
+/**
+ * Busca um {ModuleName} por ID.
+ *
+ * @param id - ID do {ModuleName}
+ * @returns {ModuleName} encontrado
+ * @throws {NotFoundError} Se não encontrar
+ */
+export async function fetch{ModuleName}ById(id: string): Promise<{ModuleName}> {
+  const response = await api.get(`${BASE_URL}/${id}`);
+  return response.data;
+}
+
+/**
+ * Cria um novo {ModuleName}.
+ *
+ * @param data - Dados para criação
+ * @returns {ModuleName} criado
+ */
+export async function create{ModuleName}(data: Create{ModuleName}Input): Promise<{ModuleName}> {
+  const response = await api.post(BASE_URL, data);
+  return response.data;
+}
+
+/**
+ * Atualiza um {ModuleName} existente.
+ *
+ * @param id - ID do {ModuleName}
+ * @param data - Dados para atualização
+ * @returns {ModuleName} atualizado
+ */
+export async function update{ModuleName}(id: string, data: Update{ModuleName}Input): Promise<{ModuleName}> {
+  const response = await api.patch(`${BASE_URL}/${id}`, data);
+  return response.data;
+}
+
+/**
+ * Remove um {ModuleName}.
+ *
+ * @param id - ID do {ModuleName}
+ */
+export async function delete{ModuleName}(id: string): Promise<void> {
+  await api.delete(`${BASE_URL}/${id}`);
+}
+```
+
+---
+
+## 4. Hooks
+
+```typescript
+// hooks/use{ModuleName}.ts
+import { useQuery } from '@tanstack/react-query';
+import { fetch{ModuleName}s, fetch{ModuleName}ById } from '../api';
+import type { {ModuleName}Filters } from '../types';
+
+const QUERY_KEY = '{moduleName}s';
+
+/**
+ * Hook para buscar lista de {ModuleName}s com cache e revalidação.
+ *
+ * @param filters - Filtros opcionais
+ * @returns Query result com lista de {ModuleName}s
+ *
+ * @example
+ * ```tsx
+ * const { data, isLoading } = use{ModuleName}s({ status: 'active' });
+ * ```
+ */
+export function use{ModuleName}s(filters?: {ModuleName}Filters) {
+  return useQuery({
+    queryKey: [QUERY_KEY, filters],
+    queryFn: () => fetch{ModuleName}s(filters),
+  });
+}
+
+/**
+ * Hook para buscar um {ModuleName} por ID.
+ *
+ * @param id - ID do {ModuleName}
+ * @returns Query result com {ModuleName}
+ */
+export function use{ModuleName}(id: string | undefined) {
+  return useQuery({
+    queryKey: [QUERY_KEY, id],
+    queryFn: () => fetch{ModuleName}ById(id!),
+    enabled: !!id,
+  });
+}
+```
+
+```typescript
+// hooks/use{ModuleName}Mutations.ts
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { create{ModuleName}, update{ModuleName}, delete{ModuleName} } from '../api';
+import type { Create{ModuleName}Input, Update{ModuleName}Input } from '../types';
+
+const QUERY_KEY = '{moduleName}s';
+
+/**
+ * Hook para criar {ModuleName} com invalidação automática de cache.
+ *
+ * @example
+ * ```tsx
+ * const { mutate } = useCreate{ModuleName}();
+ * mutate({ name: 'Novo' }, { onSuccess: () => toast.success('Criado!') });
+ * ```
+ */
+export function useCreate{ModuleName}() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Create{ModuleName}Input) => create{ModuleName}(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+
+/**
+ * Hook para atualizar {ModuleName}.
+ */
+export function useUpdate{ModuleName}() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Update{ModuleName}Input }) =>
+      update{ModuleName}(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+
+/**
+ * Hook para deletar {ModuleName}.
+ */
+export function useDelete{ModuleName}() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => delete{ModuleName}(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+```
+
+---
+
+## 5. Components
+
+```tsx
+// components/{ModuleName}List.tsx
+import { Box, CircularProgress, Alert } from '@mui/material';
+import { use{ModuleName}s } from '../hooks';
+import { {ModuleName}Card } from './{ModuleName}Card';
+import type { {ModuleName}Filters } from '../types';
+
+interface {ModuleName}ListProps {
+  filters?: {ModuleName}Filters;
+  onSelect?: (id: string) => void;
+}
+
+/**
+ * Lista de {ModuleName}s com loading e error states.
+ *
+ * @example
+ * ```tsx
+ * <{ModuleName}List filters={{ status: 'active' }} onSelect={handleSelect} />
+ * ```
+ */
+export function {ModuleName}List({ filters, onSelect }: {ModuleName}ListProps) {
+  const { data, isLoading, error } = use{ModuleName}s(filters);
+
+  if (isLoading) {
+    return <CircularProgress data-testid="loading" />;
+  }
+
+  if (error) {
+    return <Alert severity="error">Erro ao carregar dados</Alert>;
+  }
+
+  if (!data?.items.length) {
+    return <Alert severity="info">Nenhum item encontrado</Alert>;
+  }
+
+  return (
+    <Box sx={{ display: 'grid', gap: 2 }}>
+      {data.items.map((item) => (
+        <{ModuleName}Card key={item.id} data={item} onClick={() => onSelect?.(item.id)} />
+      ))}
+    </Box>
+  );
+}
+```
+
+```tsx
+// components/{ModuleName}Form.tsx
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { TextField, Button, Box } from '@mui/material';
+import { create{ModuleName}Schema, type Create{ModuleName}FormData } from '../schemas';
+
+interface {ModuleName}FormProps {
+  onSubmit: (data: Create{ModuleName}FormData) => void;
+  isLoading?: boolean;
+}
+
+/**
+ * Formulário de criação/edição de {ModuleName}.
+ *
+ * @example
+ * ```tsx
+ * <{ModuleName}Form onSubmit={handleCreate} isLoading={isPending} />
+ * ```
+ */
+export function {ModuleName}Form({ onSubmit, isLoading }: {ModuleName}FormProps) {
+  const { register, handleSubmit, formState: { errors } } = useForm<Create{ModuleName}FormData>({
+    resolver: zodResolver(create{ModuleName}Schema),
+  });
+
+  return (
+    <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'grid', gap: 2 }}>
+      <TextField
+        {...register('name')}
+        label="Nome"
+        error={!!errors.name}
+        helperText={errors.name?.message}
+        fullWidth
+      />
+      <Button type="submit" variant="contained" disabled={isLoading}>
+        {isLoading ? 'Salvando...' : 'Salvar'}
+      </Button>
+    </Box>
+  );
+}
+```
+
+---
+
+## 6. Tests
+
+### Unit Test (Hook)
+
+```typescript
+// __tests__/hooks/use{ModuleName}.test.ts
+import { renderHook, waitFor } from '@testing-library/react';
+import { use{ModuleName}s } from '../../hooks';
+import { create{ModuleName}Mock } from '@/test/fixtures/{moduleName}.fixture';
+import { createQueryWrapper } from '@/test/utils';
+
+describe('use{ModuleName}s', () => {
+  describe('when fetching successfully', () => {
+    it('should return list of {moduleName}s', async () => {
+      // Arrange
+      const mockData = [create{ModuleName}Mock(), create{ModuleName}Mock()];
+      server.use(http.get('/api/{moduleName}s', () => HttpResponse.json({ items: mockData })));
+
+      // Act
+      const { result } = renderHook(() => use{ModuleName}s(), { wrapper: createQueryWrapper() });
+
+      // Assert
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data?.items).toHaveLength(2);
+    });
+  });
+
+  describe('when request fails', () => {
+    it('should return error state', async () => {
+      server.use(http.get('/api/{moduleName}s', () => HttpResponse.error()));
+
+      const { result } = renderHook(() => use{ModuleName}s(), { wrapper: createQueryWrapper() });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+  });
+});
+```
+
+### Component Test
+
+```typescript
+// __tests__/components/{ModuleName}Form.test.tsx
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { {ModuleName}Form } from '../../components';
+
+describe('{ModuleName}Form', () => {
+  const mockOnSubmit = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('when submitting valid data', () => {
+    it('should call onSubmit with form data', async () => {
+      // Arrange
+      const user = userEvent.setup();
+      render(<{ModuleName}Form onSubmit={mockOnSubmit} />);
+
+      // Act
+      await user.type(screen.getByLabelText(/nome/i), 'Test Name');
+      await user.click(screen.getByRole('button', { name: /salvar/i }));
+
+      // Assert
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalledWith({ name: 'Test Name' });
+      });
+    });
+  });
+
+  describe('when data is invalid', () => {
+    it('should show validation errors', async () => {
+      const user = userEvent.setup();
+      render(<{ModuleName}Form onSubmit={mockOnSubmit} />);
+
+      await user.click(screen.getByRole('button', { name: /salvar/i }));
+
+      expect(await screen.findByText(/pelo menos 2 caracteres/i)).toBeInTheDocument();
+      expect(mockOnSubmit).not.toHaveBeenCalled();
+    });
+  });
+});
+```
+
+### E2E Test
+
+```typescript
+// __tests__/e2e/{moduleName}.spec.ts
+import { test, expect } from '@playwright/test';
+
+test.describe('{ModuleName} CRUD', () => {
+  test.describe('when creating new {moduleName}', () => {
+    test('should show in list after creation', async ({ page }) => {
+      // Arrange
+      await page.goto('/{moduleName}s');
+
+      // Act
+      await page.click('text=Novo');
+      await page.fill('[name="name"]', 'E2E Test Item');
+      await page.click('text=Salvar');
+
+      // Assert
+      await expect(page).toHaveURL('/{moduleName}s');
+      await expect(page.locator('text=E2E Test Item')).toBeVisible();
+    });
+  });
+
+  test.describe('when editing {moduleName}', () => {
+    test('should update successfully', async ({ page }) => {
+      await page.goto('/{moduleName}s/1/edit');
+
+      await page.fill('[name="name"]', 'Updated Name');
+      await page.click('text=Salvar');
+
+      await expect(page.locator('text=Updated Name')).toBeVisible();
+    });
+  });
+
+  test.describe('when deleting {moduleName}', () => {
+    test('should remove from list', async ({ page }) => {
+      await page.goto('/{moduleName}s');
+      
+      await page.click('[data-testid="delete-1"]');
+      await page.click('text=Confirmar');
+
+      await expect(page.locator('[data-testid="item-1"]')).not.toBeVisible();
+    });
+  });
+});
+```
+
+---
+
+## 7. README.md
+
+```markdown
+# {ModuleName} Module
+
+## Descrição
+Módulo responsável por [descrição da funcionalidade].
+
+## Estrutura
+- `types/` - Interfaces e tipos TypeScript
+- `schemas/` - Validações Zod
+- `api/` - Chamadas HTTP
+- `hooks/` - React Query hooks
+- `components/` - Componentes UI
+
+## Uso
+
+### Listar {ModuleName}s
+\`\`\`tsx
+import { use{ModuleName}s, {ModuleName}List } from '@/modules/{moduleName}';
+
+function Page() {
+  return <{ModuleName}List filters={{ status: 'active' }} />;
+}
+\`\`\`
+
+### Criar {ModuleName}
+\`\`\`tsx
+import { useCreate{ModuleName}, {ModuleName}Form } from '@/modules/{moduleName}';
+
+function CreatePage() {
+  const { mutate, isPending } = useCreate{ModuleName}();
+  return <{ModuleName}Form onSubmit={mutate} isLoading={isPending} />;
+}
+\`\`\`
+```
+
+---
+
+## 8. Index (Exports)
+
+```typescript
+// index.ts
+
+// Components
+export { {ModuleName}List } from './components';
+export { {ModuleName}Form } from './components';
+export { {ModuleName}Card } from './components';
+
+// Hooks
+export { use{ModuleName}s, use{ModuleName} } from './hooks';
+export { useCreate{ModuleName}, useUpdate{ModuleName}, useDelete{ModuleName} } from './hooks';
+
+// Types
+export type { {ModuleName}, Create{ModuleName}Input, Update{ModuleName}Input } from './types';
+export type { {ModuleName}Filters, {ModuleName}Status } from './types';
+
+// Schemas (para uso externo se necessário)
+export { create{ModuleName}Schema, update{ModuleName}Schema } from './schemas';
+```

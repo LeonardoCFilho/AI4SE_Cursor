@@ -1,0 +1,301 @@
+---
+description: Code review and refactoring suggestions
+alwaysApply: false
+---
+
+# Checklist de Code Review
+
+## ✅ Funções com Máximo 20 Linhas
+
+```typescript
+// ❌ ANTES: função muito longa (35+ linhas)
+function processOrder(order: Order) {
+  // validação
+  if (!order.items.length) throw new Error('Empty order');
+  if (!order.customer) throw new Error('No customer');
+  if (!order.shippingAddress) throw new Error('No address');
+  
+  // cálculo de totais
+  let subtotal = 0;
+  for (const item of order.items) {
+    subtotal += item.price * item.quantity;
+  }
+  
+  // aplicar desconto
+  let discount = 0;
+  if (order.coupon) {
+    if (order.coupon.type === 'percent') {
+      discount = subtotal * (order.coupon.value / 100);
+    } else {
+      discount = order.coupon.value;
+    }
+  }
+  
+  // calcular frete
+  let shipping = 0;
+  if (subtotal < 200) {
+    shipping = order.shippingAddress.state === 'SP' ? 15 : 25;
+  }
+  
+  // salvar e notificar
+  const total = subtotal - discount + shipping;
+  db.orders.save({ ...order, total });
+  emailService.send(order.customer.email, 'Order confirmed');
+  return { total, discount, shipping };
+}
+
+// ✅ DEPOIS: funções pequenas e focadas
+function processOrder(order: Order): OrderResult {
+  validateOrder(order);
+  const subtotal = calculateSubtotal(order.items);
+  const discount = calculateDiscount(subtotal, order.coupon);
+  const shipping = calculateShipping(subtotal, order.shippingAddress);
+  const total = subtotal - discount + shipping;
+  
+  saveAndNotify(order, total);
+  return { total, discount, shipping };
+}
+
+function validateOrder(order: Order): void {
+  if (!order.items.length) throw new Error('Empty order');
+  if (!order.customer) throw new Error('No customer');
+  if (!order.shippingAddress) throw new Error('No address');
+}
+
+function calculateSubtotal(items: OrderItem[]): number {
+  return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+}
+```
+
+---
+
+## ✅ Componentes com Máximo 200 Linhas
+
+```tsx
+// ❌ ANTES: componente monolítico (300+ linhas)
+function UserDashboard() {
+  // 50 linhas de hooks e state
+  // 100 linhas de handlers
+  // 150 linhas de JSX
+}
+
+// ✅ DEPOIS: componentes compostos
+function UserDashboard() {
+  const { user, stats, isLoading } = useUserDashboard();
+
+  if (isLoading) return <DashboardSkeleton />;
+
+  return (
+    <DashboardLayout>
+      <UserHeader user={user} />
+      <StatsGrid stats={stats} />
+      <RecentActivity userId={user.id} />
+      <QuickActions user={user} />
+    </DashboardLayout>
+  );
+}
+
+// Extrair lógica para hook customizado
+function useUserDashboard() {
+  const { data: user } = useUser();
+  const { data: stats } = useUserStats(user?.id);
+  // ...
+  return { user, stats, isLoading };
+}
+```
+
+---
+
+## ✅ Todos Exports têm JSDoc/TSDoc
+
+```typescript
+// ❌ ANTES: sem documentação
+export function formatPrice(value: number, currency: string): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
+}
+
+// ✅ DEPOIS: documentação completa
+/**
+ * Formata valor numérico para exibição como moeda.
+ *
+ * @param value - Valor numérico a formatar
+ * @param currency - Código ISO da moeda (ex: 'BRL', 'USD')
+ * @returns String formatada (ex: 'R$ 1.234,56')
+ *
+ * @example
+ * ```typescript
+ * formatPrice(1234.56, 'BRL'); // 'R$ 1.234,56'
+ * formatPrice(1234.56, 'USD'); // 'US$ 1.234,56'
+ * ```
+ */
+export function formatPrice(value: number, currency: string): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
+}
+```
+
+---
+
+## ✅ Sem 'any' Types
+
+```typescript
+// ❌ ANTES: any desativa verificação
+function handleResponse(data: any) {
+  return data.results.map((item: any) => item.name);
+}
+
+// ✅ DEPOIS: tipos definidos
+interface ApiResponse<T> {
+  results: T[];
+  total: number;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+}
+
+function handleResponse(data: ApiResponse<Product>): string[] {
+  return data.results.map((item) => item.name);
+}
+
+// ✅ DEPOIS (alternativa): unknown + type guard
+function handleResponse(data: unknown): string[] {
+  if (!isApiResponse(data)) {
+    throw new Error('Invalid response format');
+  }
+  return data.results.map((item) => item.name);
+}
+```
+
+---
+
+## ✅ Tratamento de Erros Implementado
+
+```typescript
+// ❌ ANTES: sem tratamento de erro
+async function fetchUser(id: string) {
+  const response = await fetch(`/api/users/${id}`);
+  return response.json();
+}
+
+// ✅ DEPOIS: tratamento completo
+async function fetchUser(id: string): Promise<User> {
+  try {
+    const response = await fetch(`/api/users/${id}`);
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new NotFoundError(`User ${id} not found`);
+      }
+      throw new ApiError(`Failed to fetch user: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return userSchema.parse(data); // validação com zod
+  } catch (error) {
+    if (error instanceof NotFoundError || error instanceof ApiError) {
+      throw error; // re-throw erros conhecidos
+    }
+    throw new NetworkError('Failed to connect to server', { cause: error });
+  }
+}
+```
+
+---
+
+## ✅ Testes Escritos (80% Coverage)
+
+```typescript
+// ❌ ANTES: função sem testes
+export function calculateDiscount(price: number, percent: number): number {
+  if (percent < 0 || percent > 100) throw new RangeError('Invalid percent');
+  return price - (price * percent / 100);
+}
+
+// ✅ DEPOIS: testes cobrindo todos os cenários
+describe('calculateDiscount', () => {
+  describe('when inputs are valid', () => {
+    it('should calculate 10% discount', () => {
+      expect(calculateDiscount(100, 10)).toBe(90);
+    });
+
+    it('should handle 0% discount', () => {
+      expect(calculateDiscount(100, 0)).toBe(100);
+    });
+
+    it('should handle 100% discount', () => {
+      expect(calculateDiscount(100, 100)).toBe(0);
+    });
+
+    it('should handle decimal values', () => {
+      expect(calculateDiscount(99.99, 15)).toBeCloseTo(84.99);
+    });
+  });
+
+  describe('when inputs are invalid', () => {
+    it('should throw for negative percent', () => {
+      expect(() => calculateDiscount(100, -10)).toThrow(RangeError);
+    });
+
+    it('should throw for percent > 100', () => {
+      expect(() => calculateDiscount(100, 150)).toThrow(RangeError);
+    });
+  });
+});
+```
+
+---
+
+## ✅ Sem Código Duplicado
+
+```typescript
+// ❌ ANTES: lógica duplicada
+function UserCard({ user }: { user: User }) {
+  const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+  return <div className="avatar">{initials}</div>;
+}
+
+function CommentAuthor({ author }: { author: User }) {
+  const initials = author.name.split(' ').map(n => n[0]).join('').toUpperCase();
+  return <span className="author">{initials}</span>;
+}
+
+function TeamMember({ member }: { member: User }) {
+  const initials = member.name.split(' ').map(n => n[0]).join('').toUpperCase();
+  return <li>{initials} - {member.role}</li>;
+}
+
+// ✅ DEPOIS: extrair para utilitário
+// utils/string.ts
+export function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+}
+
+// Uso nos componentes
+function UserCard({ user }: { user: User }) {
+  return <div className="avatar">{getInitials(user.name)}</div>;
+}
+
+function CommentAuthor({ author }: { author: User }) {
+  return <span className="author">{getInitials(author.name)}</span>;
+}
+```
+
+---
+
+## Resumo do Checklist
+
+| Item | Limite | Ação se Violado |
+|------|--------|-----------------|
+| Linhas por função | ≤ 20 | Extrair funções auxiliares |
+| Linhas por componente | ≤ 200 | Extrair subcomponentes e hooks |
+| Exports sem JSDoc | 0 | Adicionar documentação |
+| Uso de `any` | 0 | Definir tipos ou usar `unknown` |
+| Funções sem try-catch | 0 | Implementar error handling |
+| Cobertura de testes | ≥ 80% | Escrever testes faltantes |
+| Código duplicado | 0 | Extrair para utils/hooks |

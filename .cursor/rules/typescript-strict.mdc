@@ -1,0 +1,216 @@
+---
+description: TypeScript strict mode - tipagem rigorosa e tratamento de erros
+alwaysApply: true
+---
+
+# TypeScript Strict Mode
+
+## Proibido Usar `any`
+
+Use `unknown` quando o tipo é desconhecido e faça type narrowing.
+
+```typescript
+// ❌ RUIM: any desativa verificação de tipos
+function parse(data: any) {
+  return data.value.nested.prop; // sem verificação
+}
+
+// ✅ BOM: unknown força verificação
+function parse(data: unknown) {
+  if (isValidData(data)) {
+    return data.value; // tipo verificado
+  }
+  throw new Error('Invalid data');
+}
+```
+
+---
+
+## Tipos Explícitos em Retornos
+
+Funções exportadas devem ter tipo de retorno explícito.
+
+```typescript
+// ❌ RUIM: retorno inferido
+export function getUser(id: string) {
+  return db.users.find(u => u.id === id);
+}
+
+// ✅ BOM: retorno explícito
+export function getUser(id: string): User | undefined {
+  return db.users.find(u => u.id === id);
+}
+
+// ✅ BOM: async com Promise tipada
+export async function fetchUser(id: string): Promise<User> {
+  const response = await api.get(`/users/${id}`);
+  return response.data;
+}
+```
+
+---
+
+## Type Narrowing > Type Assertions
+
+Prefira verificações em runtime a forçar tipos.
+
+```typescript
+// ❌ RUIM: type assertion força o tipo
+function processEvent(event: unknown) {
+  const e = event as MouseEvent; // perigoso
+  console.log(e.clientX);
+}
+
+// ✅ BOM: type narrowing verifica em runtime
+function processEvent(event: unknown) {
+  if (event instanceof MouseEvent) {
+    console.log(event.clientX); // tipo garantido
+  }
+}
+
+// ✅ BOM: type guard customizado
+function isUser(obj: unknown): obj is User {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'id' in obj &&
+    'email' in obj
+  );
+}
+
+function processData(data: unknown) {
+  if (isUser(data)) {
+    console.log(data.email); // TypeScript sabe que é User
+  }
+}
+```
+
+---
+
+## Interface vs Type
+
+- **Interface**: objetos e classes (extensível)
+- **Type**: unions, tuples, tipos primitivos compostos
+
+```typescript
+// ✅ Interface para objetos
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+// ✅ Interface é extensível
+interface AdminUser extends User {
+  permissions: string[];
+}
+
+// ✅ Type para unions
+type Status = 'pending' | 'active' | 'inactive';
+type Result<T> = Success<T> | Failure;
+
+// ✅ Type para tuples
+type Coordinates = [number, number];
+
+// ✅ Type para tipos utilitários
+type UserWithoutId = Omit<User, 'id'>;
+type PartialUser = Partial<User>;
+```
+
+---
+
+## Tratamento de Erros Tipado
+
+### Erros Customizados
+
+```typescript
+// ✅ Classes de erro tipadas
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public code: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+class ValidationError extends Error {
+  constructor(
+    message: string,
+    public field: string
+  ) {
+    super(message);
+    this.name = 'ValidationError';
+  }
+}
+```
+
+### Try-Catch Tipado
+
+```typescript
+// ❌ RUIM: catch sem verificação de tipo
+try {
+  await saveUser(data);
+} catch (error) {
+  console.log(error.message); // error é 'unknown'
+}
+
+// ✅ BOM: verificar tipo do erro
+try {
+  await saveUser(data);
+} catch (error) {
+  if (error instanceof ApiError) {
+    // Acesso tipado às propriedades
+    logger.error(`API Error ${error.statusCode}: ${error.message}`);
+    showToast(`Erro: ${error.code}`);
+  } else if (error instanceof ValidationError) {
+    showFieldError(error.field, error.message);
+  } else if (error instanceof Error) {
+    logger.error('Unexpected error', { error: error.message });
+    showToast('Erro inesperado');
+  } else {
+    logger.error('Unknown error type', { error });
+    showToast('Erro desconhecido');
+  }
+}
+```
+
+### Result Pattern (alternativa a try-catch)
+
+```typescript
+// ✅ Tipo Result para erros esperados
+type Result<T, E = Error> =
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+async function createUser(data: UserInput): Promise<Result<User, ValidationError>> {
+  const validation = validateUser(data);
+  if (!validation.valid) {
+    return { success: false, error: new ValidationError(validation.message, validation.field) };
+  }
+  
+  const user = await db.users.create(data);
+  return { success: true, data: user };
+}
+
+// Uso
+const result = await createUser(input);
+if (result.success) {
+  redirect(`/users/${result.data.id}`);
+} else {
+  showError(result.error.field, result.error.message);
+}
+```
+
+---
+
+## Checklist TypeScript Strict
+
+- [ ] Nenhum `any` no código (usar `unknown`)
+- [ ] Funções exportadas têm retorno explícito
+- [ ] Type narrowing em vez de type assertions
+- [ ] Interfaces para objetos, types para unions
+- [ ] Erros tratados com verificação de tipo
+- [ ] Classes de erro customizadas quando necessário

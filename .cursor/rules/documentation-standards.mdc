@@ -1,0 +1,180 @@
+---
+description: Padrões de documentação JSDoc/TSDoc - obrigatório para código exportado
+alwaysApply: true
+---
+
+# Documentação Obrigatória
+
+## Requisitos
+
+Todo código **exportado** deve ter documentação JSDoc/TSDoc:
+- Funções
+- Componentes React
+- Hooks customizados
+- Classes e métodos públicos
+- Tipos e interfaces complexas
+
+---
+
+## Template de Documentação
+
+```typescript
+/**
+ * Descrição breve e clara do que faz.
+ *
+ * @param paramName - Descrição do parâmetro
+ * @returns Descrição do que é retornado
+ * @throws {ErrorType} Quando e por que lança erro
+ *
+ * @example
+ * ```typescript
+ * const result = minhaFuncao('valor');
+ * console.log(result); // saída esperada
+ * ```
+ */
+```
+
+### Exemplo Completo - Função
+
+```typescript
+// ❌ RUIM: sem documentação
+export function calculateDiscount(price: number, percent: number): number {
+  return price - (price * percent / 100);
+}
+
+// ✅ BOM: documentação completa
+/**
+ * Calcula o preço final após aplicar desconto percentual.
+ *
+ * @param price - Preço original do produto em reais
+ * @param percent - Percentual de desconto (0-100)
+ * @returns Preço final após desconto aplicado
+ * @throws {RangeError} Se percent for negativo ou maior que 100
+ *
+ * @example
+ * ```typescript
+ * const finalPrice = calculateDiscount(100, 15);
+ * console.log(finalPrice); // 85
+ * ```
+ */
+export function calculateDiscount(price: number, percent: number): number {
+  if (percent < 0 || percent > 100) {
+    throw new RangeError('Percentual deve estar entre 0 e 100');
+  }
+  return price - (price * percent / 100);
+}
+```
+
+### Exemplo - Componente React
+
+```tsx
+// ❌ RUIM: componente sem documentação
+export function UserCard({ user, onEdit }: UserCardProps) {
+  return <div>...</div>;
+}
+
+// ✅ BOM: componente documentado
+/**
+ * Card de exibição de informações do usuário com ações.
+ *
+ * @param props - Propriedades do componente
+ * @param props.user - Dados do usuário a exibir
+ * @param props.onEdit - Callback ao clicar em editar
+ *
+ * @example
+ * ```tsx
+ * <UserCard
+ *   user={{ id: 1, name: 'João', email: 'joao@email.com' }}
+ *   onEdit={(user) => openModal(user)}
+ * />
+ * ```
+ */
+export function UserCard({ user, onEdit }: UserCardProps) {
+  return <div>...</div>;
+}
+```
+
+### Exemplo - Hook Customizado
+
+```typescript
+// ❌ RUIM: hook sem documentação
+export function useDebounce<T>(value: T, delay: number): T {
+  // ...
+}
+
+// ✅ BOM: hook documentado
+/**
+ * Atrasa a atualização de um valor até que pare de mudar.
+ * Útil para inputs de busca e validações em tempo real.
+ *
+ * @param value - Valor a ser "debounced"
+ * @param delay - Tempo de espera em milissegundos
+ * @returns Valor atualizado após o delay
+ *
+ * @example
+ * ```typescript
+ * const [search, setSearch] = useState('');
+ * const debouncedSearch = useDebounce(search, 300);
+ *
+ * useEffect(() => {
+ *   fetchResults(debouncedSearch);
+ * }, [debouncedSearch]);
+ * ```
+ */
+export function useDebounce<T>(value: T, delay: number): T {
+  // ...
+}
+```
+
+---
+
+## Comentários Inline Obrigatórios
+
+### Lógica de Negócio Complexa
+
+```typescript
+// ✅ Explique regras de negócio
+function calculateShipping(order: Order): number {
+  // Frete grátis para pedidos acima de R$200 na região Sul
+  // Regra definida pelo marketing em 2024-01
+  if (order.total >= 200 && SOUTH_STATES.includes(order.state)) {
+    return 0;
+  }
+  // ...
+}
+```
+
+### Cálculos Não-Óbvios
+
+```typescript
+// ✅ Explique fórmulas e algoritmos
+function calculateCompoundInterest(principal: number, rate: number, time: number) {
+  // Fórmula de juros compostos: M = P * (1 + r)^t
+  // Onde: P = principal, r = taxa mensal, t = tempo em meses
+  return principal * Math.pow(1 + rate, time);
+}
+```
+
+### Workarounds e Débitos Técnicos
+
+Use prefixos padronizados:
+
+```typescript
+// TODO: Implementar cache quando API de produtos estiver estável
+// FIXME: Contornar bug do Safari com flexbox - remover após v16
+// HACK: Solução temporária até refatorar módulo de auth
+// NOTE: Esta ordem de operações é intencional por causa de X
+```
+
+---
+
+## Checklist de Documentação
+
+- [ ] Toda função exportada tem JSDoc
+- [ ] Descrição é clara e concisa
+- [ ] Todos os `@param` documentados
+- [ ] `@returns` especifica o retorno
+- [ ] `@throws` lista exceções possíveis
+- [ ] `@example` mostra uso prático
+- [ ] Lógica complexa tem comentário inline
+- [ ] Workarounds marcados com TODO/FIXME

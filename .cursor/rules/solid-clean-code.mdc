@@ -1,0 +1,234 @@
+---
+description: Princípios SOLID e Clean Code - padrões obrigatórios para código limpo e manutenível
+alwaysApply: true
+---
+
+# Princípios SOLID
+
+## S - Single Responsibility (Responsabilidade Única)
+
+Cada componente/classe deve ter apenas uma razão para mudar.
+
+```typescript
+// ❌ RUIM: múltiplas responsabilidades
+class UserManager {
+  createUser(data: UserData) { /* ... */ }
+  sendEmail(user: User) { /* ... */ }
+  generateReport(user: User) { /* ... */ }
+  validatePassword(pass: string) { /* ... */ }
+}
+
+// ✅ BOM: responsabilidades separadas
+class UserService {
+  createUser(data: UserData) { /* ... */ }
+}
+class EmailService {
+  send(to: string, content: string) { /* ... */ }
+}
+class ReportGenerator {
+  generate(data: ReportData) { /* ... */ }
+}
+```
+
+## O - Open/Closed (Aberto/Fechado)
+
+Aberto para extensão, fechado para modificação. Use composição.
+
+```typescript
+// ❌ RUIM: modificar classe para cada novo tipo
+class PaymentProcessor {
+  process(type: string, amount: number) {
+    if (type === 'credit') { /* ... */ }
+    else if (type === 'pix') { /* ... */ }
+    else if (type === 'boleto') { /* ... */ }
+  }
+}
+
+// ✅ BOM: extensível via composição
+interface PaymentStrategy {
+  process(amount: number): Promise<Result>;
+}
+class CreditCardPayment implements PaymentStrategy { /* ... */ }
+class PixPayment implements PaymentStrategy { /* ... */ }
+
+class PaymentProcessor {
+  constructor(private strategy: PaymentStrategy) {}
+  process(amount: number) {
+    return this.strategy.process(amount);
+  }
+}
+```
+
+## L - Liskov Substitution (Substituição de Liskov)
+
+Subtipos devem ser substituíveis por seus tipos base.
+
+```typescript
+// ❌ RUIM: subtipo quebra contrato do pai
+class Bird {
+  fly() { return 'flying'; }
+}
+class Penguin extends Bird {
+  fly() { throw new Error('Cannot fly!'); } // quebra o contrato
+}
+
+// ✅ BOM: hierarquia correta
+interface Bird {
+  move(): string;
+}
+class FlyingBird implements Bird {
+  move() { return 'flying'; }
+}
+class SwimmingBird implements Bird {
+  move() { return 'swimming'; }
+}
+```
+
+## I - Interface Segregation (Segregação de Interface)
+
+Interfaces específicas são melhores que uma interface geral.
+
+```typescript
+// ❌ RUIM: interface muito grande
+interface Worker {
+  work(): void;
+  eat(): void;
+  sleep(): void;
+  attendMeeting(): void;
+}
+
+// ✅ BOM: interfaces segregadas
+interface Workable {
+  work(): void;
+}
+interface Feedable {
+  eat(): void;
+}
+interface MeetingAttendee {
+  attendMeeting(): void;
+}
+
+class Developer implements Workable, MeetingAttendee {
+  work() { /* ... */ }
+  attendMeeting() { /* ... */ }
+}
+```
+
+## D - Dependency Inversion (Inversão de Dependência)
+
+Dependa de abstrações, não de implementações concretas.
+
+```typescript
+// ❌ RUIM: dependência de implementação concreta
+class OrderService {
+  private database = new MySQLDatabase();
+  private mailer = new SendGridMailer();
+  
+  createOrder(data: OrderData) {
+    this.database.save(data);
+    this.mailer.send(data.email, 'Order created');
+  }
+}
+
+// ✅ BOM: depende de abstrações (injeção de dependência)
+interface Database { save(data: unknown): Promise<void>; }
+interface Mailer { send(to: string, msg: string): Promise<void>; }
+
+class OrderService {
+  constructor(
+    private database: Database,
+    private mailer: Mailer
+  ) {}
+  
+  createOrder(data: OrderData) {
+    this.database.save(data);
+    this.mailer.send(data.email, 'Order created');
+  }
+}
+```
+
+---
+
+# Regras de Clean Code
+
+## Tamanho de Funções
+- **Máximo 20 linhas** por função
+- Extraia funções auxiliares quando necessário
+
+## Parâmetros
+- **Máximo 3 parâmetros** por função
+- Use objetos para agrupar parâmetros relacionados
+
+```typescript
+// ❌ RUIM
+function createUser(name: string, email: string, age: number, role: string, dept: string) {}
+
+// ✅ BOM
+function createUser(params: CreateUserParams) {}
+```
+
+## Nomes Descritivos
+Evite nomes genéricos: `data`, `temp`, `x`, `info`, `item`, `result`
+
+```typescript
+// ❌ RUIM
+const data = getUsers();
+const temp = data.filter(x => x.active);
+
+// ✅ BOM
+const users = getUsers();
+const activeUsers = users.filter(user => user.isActive);
+```
+
+## Early Returns
+Use retornos antecipados em vez de else aninhados.
+
+```typescript
+// ❌ RUIM
+function getDiscount(user: User) {
+  if (user.isPremium) {
+    return 0.2;
+  } else {
+    if (user.ordersCount > 10) {
+      return 0.1;
+    } else {
+      return 0;
+    }
+  }
+}
+
+// ✅ BOM
+function getDiscount(user: User) {
+  if (user.isPremium) return 0.2;
+  if (user.ordersCount > 10) return 0.1;
+  return 0;
+}
+```
+
+## Constantes em vez de Números Mágicos
+
+```typescript
+// ❌ RUIM
+if (password.length < 8) {}
+if (retries > 3) {}
+
+// ✅ BOM
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_RETRY_ATTEMPTS = 3;
+
+if (password.length < MIN_PASSWORD_LENGTH) {}
+if (retries > MAX_RETRY_ATTEMPTS) {}
+```
+
+## Evite Ternários Aninhados
+
+```typescript
+// ❌ RUIM
+const status = isActive ? (isPremium ? 'vip' : 'regular') : (isBanned ? 'banned' : 'inactive');
+
+// ✅ BOM
+function getStatus(user: User): string {
+  if (!user.isActive) return user.isBanned ? 'banned' : 'inactive';
+  return user.isPremium ? 'vip' : 'regular';
+}
+```

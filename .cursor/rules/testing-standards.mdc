@@ -1,0 +1,206 @@
+---
+description: Padrões de testes - pirâmide, cobertura e convenções
+globs: "**/*.test.{ts,tsx}"
+alwaysApply: false
+---
+
+# Padrões de Testes
+
+## Pirâmide de Testes
+
+```
+        ╱╲
+       ╱  ╲       10% E2E Tests
+      ╱────╲      (fluxos críticos)
+     ╱      ╲
+    ╱        ╲    20% Integration Tests
+   ╱──────────╲   (módulos + APIs)
+  ╱            ╲
+ ╱              ╲  70% Unit Tests
+╱────────────────╲ (funções + componentes)
+```
+
+| Tipo | % | Foco | Ferramentas |
+|------|---|------|-------------|
+| Unit | 70% | Funções, hooks, componentes isolados | Jest, Vitest, Testing Library |
+| Integration | 20% | Módulos, APIs, banco de dados | Supertest, MSW |
+| E2E | 10% | Fluxos críticos do usuário | Playwright, Cypress |
+
+---
+
+## Metas de Cobertura Mínima
+
+```json
+{
+  "coverageThreshold": {
+    "global": {
+      "statements": 80,
+      "branches": 75,
+      "functions": 80,
+      "lines": 80
+    }
+  }
+}
+```
+
+| Métrica | Mínimo | Descrição |
+|---------|--------|-----------|
+| Statements | ≥ 80% | Linhas de código executadas |
+| Branches | ≥ 75% | Caminhos condicionais (if/else) |
+| Functions | ≥ 80% | Funções chamadas |
+| Lines | ≥ 80% | Linhas cobertas |
+
+---
+
+## Critérios de Entrada
+
+Antes de iniciar testes, verificar:
+
+- [ ] **Dependências instaladas** (`npm install` / `pnpm install`)
+- [ ] **Ambiente configurado** (`.env.test` com variáveis necessárias)
+- [ ] **Banco de teste pronto** (migrations aplicadas, seeds executados)
+- [ ] **Mocks configurados** (MSW handlers, fixtures carregadas)
+- [ ] **Build sem erros** (TypeScript compila sem falhas)
+
+---
+
+## Critérios de Saída
+
+Para considerar testes completos:
+
+- [ ] **Todos os testes passando** (0 falhas)
+- [ ] **Cobertura mínima atingida** (80/75/80/80)
+- [ ] **Sem bugs críticos** (P0/P1 resolvidos)
+- [ ] **Sem testes flaky** (consistentes em 3+ execuções)
+- [ ] **CI/CD verde** (pipeline completo sem falhas)
+
+---
+
+## Convenção de Nomenclatura
+
+### Estrutura: describe → when → should
+
+```typescript
+// ✅ BOM: estrutura clara e legível
+describe('UserService', () => {
+  describe('when creating a user', () => {
+    it('should return the created user with id', () => {});
+    it('should hash the password before saving', () => {});
+    it('should throw ValidationError for invalid email', () => {});
+  });
+
+  describe('when fetching a user', () => {
+    it('should return user by id', () => {});
+    it('should return undefined for non-existent id', () => {});
+  });
+});
+```
+
+```typescript
+// ✅ BOM: componente React
+describe('LoginForm', () => {
+  describe('when form is empty', () => {
+    it('should disable submit button', () => {});
+    it('should not show validation errors', () => {});
+  });
+
+  describe('when user submits valid credentials', () => {
+    it('should call onLogin with email and password', () => {});
+    it('should show loading state', () => {});
+  });
+
+  describe('when login fails', () => {
+    it('should display error message', () => {});
+    it('should keep form values', () => {});
+  });
+});
+```
+
+### Padrão AAA (Arrange, Act, Assert)
+
+```typescript
+it('should calculate total with discount', () => {
+  // Arrange - preparar dados
+  const cart = createCart([
+    { product: 'Laptop', price: 1000 },
+    { product: 'Mouse', price: 50 },
+  ]);
+  const discount = 0.1;
+
+  // Act - executar ação
+  const total = calculateTotal(cart, discount);
+
+  // Assert - verificar resultado
+  expect(total).toBe(945);
+});
+```
+
+---
+
+## Exemplos por Tipo de Teste
+
+### Unit Test (70%)
+
+```typescript
+// hooks/useCounter.test.ts
+describe('useCounter', () => {
+  describe('when incrementing', () => {
+    it('should increase count by 1', () => {
+      const { result } = renderHook(() => useCounter());
+      
+      act(() => result.current.increment());
+      
+      expect(result.current.count).toBe(1);
+    });
+  });
+});
+```
+
+### Integration Test (20%)
+
+```typescript
+// api/users.integration.test.ts
+describe('Users API', () => {
+  describe('when POST /users', () => {
+    it('should create user and return 201', async () => {
+      const response = await request(app)
+        .post('/users')
+        .send({ name: 'John', email: 'john@test.com' });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({ name: 'John' });
+    });
+  });
+});
+```
+
+### E2E Test (10%)
+
+```typescript
+// e2e/checkout.spec.ts
+describe('Checkout Flow', () => {
+  describe('when completing purchase', () => {
+    it('should show confirmation page', async ({ page }) => {
+      await page.goto('/products');
+      await page.click('[data-testid="add-to-cart"]');
+      await page.click('[data-testid="checkout"]');
+      await page.fill('#card-number', '4242424242424242');
+      await page.click('[data-testid="pay"]');
+
+      await expect(page).toHaveURL(/\/confirmation/);
+      await expect(page.locator('h1')).toHaveText('Pedido confirmado!');
+    });
+  });
+});
+```
+
+---
+
+## Checklist de Testes
+
+- [ ] Nomenclatura segue padrão describe/when/should
+- [ ] Testes seguem padrão AAA
+- [ ] Cobertura atinge metas mínimas
+- [ ] Sem testes skipados sem justificativa
+- [ ] Mocks limpam estado após cada teste
+- [ ] Testes são independentes entre si

@@ -11,14 +11,37 @@ import {
 import { Edit as EditIcon } from '@mui/icons-material';
 
 import { DataTable, type Column } from '@/shared/components';
-import { useRooms, ROOM_TYPE_LABELS, AVAILABILITY_LABELS, AVAILABILITY_COLORS, type RoomAvailability } from '@/modules/rooms';
-import { useGuests } from '@/modules/guests';
 import type { Reservation } from '../types';
+
+/**
+ * Dados de quarto necessários para exibição na lista.
+ */
+interface RoomData {
+  id: string;
+  number: string;
+  type: string;
+  typeLabel: string;
+  availability: string;
+  availabilityLabel: string;
+  availabilityColor: 'error' | 'success' | 'warning' | 'info';
+}
+
+/**
+ * Dados de hóspede necessários para exibição na lista.
+ */
+interface GuestData {
+  id: string;
+  fullName: string;
+}
 
 interface ReservationListProps {
   reservations: Reservation[];
   isLoading?: boolean;
   onEdit: (reservation: Reservation) => void;
+  /** Mapa de quartos por ID para lookup */
+  roomsMap: Map<string, RoomData>;
+  /** Mapa de hóspedes por ID para lookup */
+  guestsMap: Map<string, GuestData>;
 }
 
 /**
@@ -28,7 +51,9 @@ interface ReservationWithDetails extends Reservation {
   roomNumber: string;
   roomType: string;
   guestName: string;
-  roomAvailability: RoomAvailability;
+  roomAvailability: string;
+  roomAvailabilityLabel: string;
+  roomAvailabilityColor: 'error' | 'success' | 'warning' | 'info';
 }
 
 /**
@@ -39,6 +64,8 @@ interface ReservationWithDetails extends Reservation {
  * @param props.reservations - Array de reservas
  * @param props.isLoading - Se está carregando
  * @param props.onEdit - Callback ao clicar em editar
+ * @param props.roomsMap - Mapa de quartos por ID
+ * @param props.guestsMap - Mapa de hóspedes por ID
  *
  * @example
  * ```tsx
@@ -46,6 +73,8 @@ interface ReservationWithDetails extends Reservation {
  *   reservations={reservations}
  *   isLoading={isLoading}
  *   onEdit={(reservation) => setSelectedReservation(reservation)}
+ *   roomsMap={roomsMap}
+ *   guestsMap={guestsMap}
  * />
  * ```
  */
@@ -53,22 +82,23 @@ export function ReservationList({
   reservations,
   isLoading = false,
   onEdit,
+  roomsMap,
+  guestsMap,
 }: ReservationListProps): ReactNode {
-  const { data: rooms = [] } = useRooms();
-  const { data: guests = [] } = useGuests();
-
   // Enriquece os dados da reserva com informações de quarto e hóspede
   const enrichedReservations: ReservationWithDetails[] = reservations.map(
     (reservation) => {
-      const room = rooms.find((r) => r.id === reservation.roomId);
-      const guest = guests.find((g) => g.id === reservation.guestId);
+      const room = roomsMap.get(reservation.roomId);
+      const guest = guestsMap.get(reservation.guestId);
 
       return {
         ...reservation,
         roomNumber: room?.number ?? 'N/A',
-        roomType: room ? ROOM_TYPE_LABELS[room.type] : 'N/A',
-        guestName: guest ? `${guest.firstName} ${guest.lastName}` : 'N/A',
+        roomType: room?.typeLabel ?? 'N/A',
+        guestName: guest?.fullName ?? 'N/A',
         roomAvailability: room?.availability ?? 'available',
+        roomAvailabilityLabel: room?.availabilityLabel ?? 'Livre',
+        roomAvailabilityColor: room?.availabilityColor ?? 'success',
       };
     }
   );
@@ -95,8 +125,8 @@ export function ReservationList({
       minWidth: 140,
       render: (row) => (
         <Chip
-          label={AVAILABILITY_LABELS[row.roomAvailability]}
-          color={AVAILABILITY_COLORS[row.roomAvailability]}
+          label={row.roomAvailabilityLabel}
+          color={row.roomAvailabilityColor}
           size="small"
         />
       ),

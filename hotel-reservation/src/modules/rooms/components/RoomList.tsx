@@ -16,6 +16,7 @@ import {
 import { Edit as EditIcon } from '@mui/icons-material';
 
 import { DataTable, type Column } from '@/shared/components';
+import { formatCurrency } from '@/shared/utils';
 import {
   type Room,
   type RoomAvailability,
@@ -23,25 +24,12 @@ import {
   AVAILABILITY_LABELS,
   AVAILABILITY_COLORS,
 } from '../types';
-import { useUpdateRoom } from '../hooks';
 
 interface RoomListProps {
   rooms: Room[];
   isLoading?: boolean;
   onEdit: (room: Room) => void;
-}
-
-/**
- * Formata valor monetário em Real brasileiro.
- *
- * @param value - Valor numérico
- * @returns Valor formatado como moeda
- */
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+  onAvailabilityChange?: (roomId: string, availability: RoomAvailability) => void;
 }
 
 /**
@@ -52,6 +40,7 @@ function formatCurrency(value: number): string {
  * @param props.rooms - Array de quartos
  * @param props.isLoading - Se está carregando
  * @param props.onEdit - Callback ao clicar em editar
+ * @param props.onAvailabilityChange - Callback ao alterar disponibilidade
  *
  * @example
  * ```tsx
@@ -59,6 +48,7 @@ function formatCurrency(value: number): string {
  *   rooms={rooms}
  *   isLoading={isLoading}
  *   onEdit={(room) => setSelectedRoom(room)}
+ *   onAvailabilityChange={(roomId, availability) => updateRoom(roomId, availability)}
  * />
  * ```
  */
@@ -66,17 +56,13 @@ export function RoomList({
   rooms,
   isLoading = false,
   onEdit,
+  onAvailabilityChange,
 }: RoomListProps): ReactNode {
-  const updateRoom = useUpdateRoom();
-
   const handleAvailabilityChange = (
     room: Room,
     event: SelectChangeEvent<RoomAvailability>
   ): void => {
-    updateRoom.mutate({
-      id: room.id,
-      data: { availability: event.target.value as RoomAvailability },
-    });
+    onAvailabilityChange?.(room.id, event.target.value as RoomAvailability);
   };
 
   const columns: Column<Room>[] = [

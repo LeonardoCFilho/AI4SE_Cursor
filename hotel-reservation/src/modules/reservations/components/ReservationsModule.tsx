@@ -1,8 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { Box, Button, Collapse, Alert } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 
-import { useRooms } from '@/modules/rooms';
+import { useRooms, ROOM_TYPE_LABELS, AVAILABILITY_LABELS, AVAILABILITY_COLORS } from '@/modules/rooms';
 import { useGuests } from '@/modules/guests';
 import {
   useReservations,
@@ -36,6 +36,58 @@ export function ReservationsModule(): ReactNode {
 
   const hasAvailableRooms = rooms.some((room) => room.availability === 'available');
   const hasGuests = guests.length > 0;
+
+  // Prepara dados para o formulário (com filtering de disponibilidade)
+  const roomOptionsForForm = useMemo(() => {
+    const roomsToShow = selectedReservation
+      ? rooms
+      : rooms.filter((room) => room.availability === 'available');
+    
+    return roomsToShow.map((room) => ({
+      id: room.id,
+      number: room.number,
+      pricePerNight: room.pricePerNight,
+      availability: room.availability,
+    }));
+  }, [rooms, selectedReservation]);
+
+  const guestOptionsForForm = useMemo(() => {
+    return guests.map((guest) => ({
+      id: guest.id,
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+    }));
+  }, [guests]);
+
+  // Prepara mapas de lookup para a lista
+  const roomsMap = useMemo(() => {
+    return new Map(
+      rooms.map((room) => [
+        room.id,
+        {
+          id: room.id,
+          number: room.number,
+          type: room.type,
+          typeLabel: ROOM_TYPE_LABELS[room.type],
+          availability: room.availability,
+          availabilityLabel: AVAILABILITY_LABELS[room.availability],
+          availabilityColor: AVAILABILITY_COLORS[room.availability],
+        },
+      ])
+    );
+  }, [rooms]);
+
+  const guestsMap = useMemo(() => {
+    return new Map(
+      guests.map((guest) => [
+        guest.id,
+        {
+          id: guest.id,
+          fullName: `${guest.firstName} ${guest.lastName}`,
+        },
+      ])
+    );
+  }, [guests]);
 
   const handleNewReservation = (): void => {
     setSelectedReservation(null);
@@ -108,6 +160,8 @@ export function ReservationsModule(): ReactNode {
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           isLoading={isSubmitting}
+          rooms={roomOptionsForForm}
+          guests={guestOptionsForForm}
         />
       </Collapse>
 
@@ -115,6 +169,8 @@ export function ReservationsModule(): ReactNode {
         reservations={reservations}
         isLoading={isLoading}
         onEdit={handleEditReservation}
+        roomsMap={roomsMap}
+        guestsMap={guestsMap}
       />
     </Box>
   );

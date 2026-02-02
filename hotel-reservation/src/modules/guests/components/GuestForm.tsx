@@ -12,6 +12,7 @@ import {
   Divider,
 } from '@mui/material';
 
+import { maskCpf, CPF_FORMATTED_LENGTH } from '@/shared/utils';
 import { guestFormSchema, type GuestFormData, formatCpf } from '../schemas';
 import type { Guest } from '../types';
 
@@ -20,23 +21,6 @@ interface GuestFormProps {
   onSubmit: (data: GuestFormData) => void;
   onCancel?: () => void;
   isLoading?: boolean;
-}
-
-/**
- * Formata CPF enquanto digita.
- *
- * @param value - Valor digitado
- * @returns Valor formatado
- */
-function maskCpf(value: string): string {
-  const cleaned = value.replace(/\D/g, '');
-  const limited = cleaned.slice(0, 11);
-
-  if (limited.length <= 3) return limited;
-  if (limited.length <= 6) return `${limited.slice(0, 3)}.${limited.slice(3)}`;
-  if (limited.length <= 9)
-    return `${limited.slice(0, 3)}.${limited.slice(3, 6)}.${limited.slice(6)}`;
-  return `${limited.slice(0, 3)}.${limited.slice(3, 6)}.${limited.slice(6, 9)}-${limited.slice(9)}`;
 }
 
 /**
@@ -143,7 +127,7 @@ export function GuestForm({
                 helperText={errors.cpf?.message}
                 disabled={isLoading}
                 placeholder="000.000.000-00"
-                inputProps={{ maxLength: 14 }}
+                inputProps={{ maxLength: CPF_FORMATTED_LENGTH }}
               />
             </Grid>
 

@@ -1,0 +1,1 @@
+export { useEntityModule } from './useEntityModule';

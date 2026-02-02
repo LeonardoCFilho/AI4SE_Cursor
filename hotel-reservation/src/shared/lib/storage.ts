@@ -1,17 +1,19 @@
+import type { Repository } from './repository';
+
 /**
  * Serviço genérico para persistência de dados no LocalStorage.
- * Simula operações CRUD para entidades com ID único.
+ * Implementa a interface Repository para permitir substituição.
  *
  * @template T - Tipo da entidade que deve ter um campo 'id' string
  *
  * @example
  * ```typescript
  * interface User { id: string; name: string; }
- * const userStorage = new StorageService<User>('users');
+ * const userStorage: Repository<User> = new StorageService<User>('users');
  * const user = userStorage.create({ name: 'João' });
  * ```
  */
-export class StorageService<T extends { id: string }> {
+export class StorageService<T extends { id: string }> implements Repository<T> {
   private readonly key: string;
 
   constructor(key: string) {

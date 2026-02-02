@@ -5,7 +5,7 @@ import { Add as AddIcon } from '@mui/icons-material';
 import { useRooms, useCreateRoom, useUpdateRoom } from '../hooks';
 import { RoomForm } from './RoomForm';
 import { RoomList } from './RoomList';
-import type { Room } from '../types';
+import type { Room, RoomAvailability } from '../types';
 import type { RoomFormData } from '../schemas';
 
 /**
@@ -38,6 +38,13 @@ export function RoomsModule(): ReactNode {
   const handleCancel = (): void => {
     setSelectedRoom(null);
     setShowForm(false);
+  };
+
+  const handleAvailabilityChange = (roomId: string, availability: RoomAvailability): void => {
+    updateRoom.mutate({
+      id: roomId,
+      data: { availability },
+    });
   };
 
   const handleSubmit = (data: RoomFormData): void => {
@@ -85,7 +92,12 @@ export function RoomsModule(): ReactNode {
         />
       </Collapse>
 
-      <RoomList rooms={rooms} isLoading={isLoading} onEdit={handleEditRoom} />
+      <RoomList
+        rooms={rooms}
+        isLoading={isLoading}
+        onEdit={handleEditRoom}
+        onAvailabilityChange={handleAvailabilityChange}
+      />
     </Box>
   );
 }

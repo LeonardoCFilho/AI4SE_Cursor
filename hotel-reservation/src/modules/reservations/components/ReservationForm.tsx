@@ -17,8 +17,6 @@ import {
   Divider,
 } from '@mui/material';
 
-import { useRooms } from '@/modules/rooms';
-import { useGuests } from '@/modules/guests';
 import { reservationFormSchema, type ReservationFormData } from '../schemas';
 import {
   type Reservation,
@@ -26,11 +24,34 @@ import {
   RESERVATION_STATUS_LABELS,
 } from '../types';
 
+/**
+ * Dados mínimos de quarto necessários para o formulário de reserva.
+ */
+interface RoomOption {
+  id: string;
+  number: string;
+  pricePerNight: number;
+  availability: string;
+}
+
+/**
+ * Dados mínimos de hóspede necessários para o formulário de reserva.
+ */
+interface GuestOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
 interface ReservationFormProps {
   initialData?: Reservation;
   onSubmit: (data: ReservationFormData) => void;
   onCancel?: () => void;
   isLoading?: boolean;
+  /** Lista de quartos disponíveis para seleção */
+  rooms: RoomOption[];
+  /** Lista de hóspedes disponíveis para seleção */
+  guests: GuestOption[];
 }
 
 const STATUS_OPTIONS: ReservationStatus[] = ['active', 'completed', 'cancelled'];
@@ -44,10 +65,14 @@ const STATUS_OPTIONS: ReservationStatus[] = ['active', 'completed', 'cancelled']
  * @param props.onSubmit - Callback ao submeter formulário válido
  * @param props.onCancel - Callback ao cancelar
  * @param props.isLoading - Se está processando
+ * @param props.rooms - Lista de quartos para seleção
+ * @param props.guests - Lista de hóspedes para seleção
  *
  * @example
  * ```tsx
  * <ReservationForm
+ *   rooms={availableRooms}
+ *   guests={guests}
  *   onSubmit={(data) => createReservation.mutate(data)}
  *   onCancel={() => setShowForm(false)}
  * />
@@ -58,9 +83,9 @@ export function ReservationForm({
   onSubmit,
   onCancel,
   isLoading = false,
+  rooms,
+  guests,
 }: ReservationFormProps): ReactNode {
-  const { data: rooms = [] } = useRooms();
-  const { data: guests = [] } = useGuests();
 
   const {
     control,
@@ -94,11 +119,6 @@ export function ReservationForm({
     onSubmit(data);
   };
 
-  // Filtra quartos disponíveis (exceto se estiver editando)
-  const availableRooms = initialData
-    ? rooms
-    : rooms.filter((room) => room.availability === 'available');
-
   return (
     <Card>
       <CardHeader
@@ -116,7 +136,7 @@ export function ReservationForm({
                   <FormControl fullWidth error={!!errors.roomId}>
                     <InputLabel>Quarto</InputLabel>
                     <Select {...field} label="Quarto" disabled={isLoading}>
-                      {availableRooms.map((room) => (
+                      {rooms.map((room) => (
                         <MenuItem key={room.id} value={room.id}>
                           Quarto {room.number} - R$ {room.pricePerNight}/noite
                         </MenuItem>
